@@ -6,8 +6,10 @@ using System.Threading.Tasks;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -30,8 +32,21 @@ namespace ImageWebApi
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddResponseCaching();
-            services.AddResponseCompression();
+            services.AddResponseCaching(options =>
+            {
+                options.SizeLimit = 8_589_934_592; // 最大缓存 1GB
+                options.MaximumBodySize = 536_870_912; // 64M
+                options.UseCaseSensitivePaths = false; // 缓存的路径是否区分大小写
+            });
+            services.AddResponseCompression(options =>
+            {
+                options.MimeTypes = new List<string> { "text/plain", "text/html", "text/xml", "application/json", "text/css", "application/x-javascript", "application/javascript" };
+                options.ExcludedMimeTypes = new List<string> { "application/octet-stream" };
+                options.EnableForHttps = true;
+
+                options.Providers.Add<BrotliCompressionProvider>();
+                options.Providers.Add<GzipCompressionProvider>();
+            });
 
             services
                 .AddHttpClient("RemoteIamgePoolClient")
@@ -69,7 +84,34 @@ namespace ImageWebApi
             app.UseRouting();
 
             app.UseAuthorization();
+
             app.UseResponseCaching();
+            //app.Use(async (context, next) =>
+            //{
+            //    context.Response.GetTypedHeaders().CacheControl =
+            //        new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
+            //        {
+            //            Public = true,
+            //            MaxAge = TimeSpan.FromDays(365),
+            //        };
+            //    context.Response.Headers[Microsoft.Net.Http.Headers.HeaderNames.Vary] =
+            //        new string[] { "Accept-Encoding" };
+
+            //    await next();
+
+            //    //if (context.Response.StatusCode == 404)
+            //    //{
+            //    //    context.Response.GetTypedHeaders().CacheControl =
+            //    //        new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
+            //    //        {
+            //    //            Public = true,
+            //    //            MaxAge = TimeSpan.FromSeconds(10),
+            //    //        };
+            //    //    context.Response.Headers[Microsoft.Net.Http.Headers.HeaderNames.Vary] =
+            //    //        new string[] { "Accept-Encoding" };
+            //    //}
+            //});
+
             app.UseResponseCompression();
             app.UseEndpoints(endpoints =>
             {
@@ -78,6 +120,7 @@ namespace ImageWebApi
 
             app.Run(async context =>
             {
+                context.Response.StatusCode = 404;
                 context.Response.ContentType = Configuration["ImageApiSetting:DefaultImageMimeType"];
                 await context.Response.Body.WriteAsync(await System.IO.File.ReadAllBytesAsync(System.IO.Path.Combine(env.ContentRootPath, Configuration["ImageApiSetting:ImageRootDir"], Configuration["ImageApiSetting:DefaultImage"])));
             });

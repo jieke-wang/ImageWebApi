@@ -26,7 +26,7 @@ namespace ImageWebApi.Controllers
         }
 
         [HttpGet("{project}/{filename}")]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
+        [ResponseCache(Duration = 31536000, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "md5" })]
         public async Task<IActionResult> GetAsync([FromRoute] string project, [FromRoute] string filename)
         {
             if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(filename)) return await GetDefaultImageAsync();
@@ -38,7 +38,7 @@ namespace ImageWebApi.Controllers
         }
 
         [HttpGet("{project}/{width}x{height}/{filename}")]
-        [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
+        [ResponseCache(Duration = 31536000, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "md5" })]
         public async Task<IActionResult> GetAsync([FromRoute] string project, [FromRoute] string width, [FromRoute] string height, [FromRoute] string filename)
         {
             if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(filename)) return await GetDefaultImageAsync();
@@ -70,6 +70,18 @@ namespace ImageWebApi.Controllers
         [NonAction]
         private async Task<IActionResult> GetDefaultImageAsync()
         {
+            Response.StatusCode = 404;
+            //ControllerContext.HttpContext.Items.Add("NotFound", bool.TrueString);
+
+            ControllerContext.HttpContext.Response.GetTypedHeaders().CacheControl =
+            new Microsoft.Net.Http.Headers.CacheControlHeaderValue()
+            {
+                Public = true,
+                MaxAge = TimeSpan.FromSeconds(10),
+            };
+            ControllerContext.HttpContext.Response.Headers[Microsoft.Net.Http.Headers.HeaderNames.Vary] =
+                new string[] { "Accept-Encoding" };
+
             return File(await System.IO.File.ReadAllBytesAsync(Path.Combine(_OriginalBaseImageDir, _configuration["ImageApiSetting:DefaultImage"])), _configuration["ImageApiSetting:DefaultImageMimeType"]);
         }
 

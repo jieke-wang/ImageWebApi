@@ -6,6 +6,8 @@ https://docs.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnet
 https://docs.microsoft.com/zh-cn/dotnet/csharp/language-reference/keywords/volatile
 https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0
 https://www.stevejgordon.co.uk/httpclient-connection-pooling-in-dotnet-core
+https://docs.microsoft.com/zh-cn/aspnet/core/performance/caching/middleware?view=aspnetcore-5.0
+https://docs.microsoft.com/zh-cn/aspnet/core/performance/caching/response?view=aspnetcore-5.0
 
 
 测试:
