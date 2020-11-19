@@ -1,0 +1,13 @@
+https://www.c-sharpcorner.com/uploadfile/rahuldebray/compress-image-to-a-given-size/
+https://www.c-sharpcorner.com/UploadFile/85ed7a/compress-and-resize-the-image-using-web-api/
+https://medium.com/@dale.bingham_30375/adding-response-caching-to-your-net-core-web-apis-quickly-3b09611ae4f5
+https://stackoverflow.com/questions/34131326/using-mimemapping-in-asp-net-core
+
+
+测试:
+http://localhost:5000/image/enterprise/demo.jpg
+http://localhost:5000/image/enterprise/demo.png
+http://localhost:5000/image/enterprise/notfound.jpg
+
+http://localhost:5000/image/enterprise/1000x1000/demo.jpg
+http://localhost:5000/image/enterprise/1000x1000/demo.png
