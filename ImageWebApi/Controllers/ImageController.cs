@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
+using System.Net.Http;
 
 namespace ImageWebApi.Controllers
 {
@@ -76,6 +78,208 @@ namespace ImageWebApi.Controllers
         {
             new FileExtensionContentTypeProvider().TryGetContentType(filename, out string contentType);
             return File(await System.IO.File.ReadAllBytesAsync(imageFullPath), contentType ?? "application/octet-stream");
+        }
+
+        [HttpPost("{project}")]
+        public async Task<IActionResult> PostAsync([FromRoute] string project, [FromForm] IFormFile file, [FromHeader] string token)
+        {
+            if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
+            if (file == null || file.Length == 0) return BadRequest();
+
+            string fileName = FileHelper.ToValidFileName(file.FileName);
+            var imageDirPath = FileHelper.ToValidFilePath(Path.Combine(_OriginalBaseImageDir, project));
+            var imagePath = Path.Combine(imageDirPath, fileName);
+            if (System.IO.File.Exists(imagePath))
+            {
+                fileName = FileHelper.AddRandomToFilename(fileName);
+                imagePath = Path.Combine(imageDirPath, fileName);
+            }
+
+            if (Directory.Exists(imageDirPath) == false) Directory.CreateDirectory(imageDirPath);
+
+            using (FileStream fs = new FileStream(imagePath, FileMode.CreateNew, FileAccess.Write, FileShare.Delete))
+            {
+                await file.CopyToAsync(fs);
+                await fs.FlushAsync();
+            }
+
+            string md5Hash = await FileHelper.GetHashFromFileAsync(imagePath, FileHelper.Algorithms.MD5);
+
+            return new JsonResult(new
+            {
+                fileName,
+                contentType = file.ContentType,
+                size = file.Length,
+                md5Hash
+            });
+        }
+
+        [HttpPost("{project}/with_check_hash")]
+        public async Task<IActionResult> PostWithCheckHashAsync([FromRoute] string project, [FromForm] IFormFile file, [FromHeader] string token)
+        {
+            if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
+            if (file == null || file.Length == 0) return BadRequest();
+
+            string fileName = FileHelper.ToValidFileName(file.FileName);
+            var imageDirPath = FileHelper.ToValidFilePath(Path.Combine(_OriginalBaseImageDir, project));
+            var imagePath = Path.Combine(imageDirPath, fileName);
+            bool needCheck = false;
+            if (System.IO.File.Exists(imagePath))
+            {
+                needCheck = true;
+            }
+
+            if (Directory.Exists(imageDirPath) == false) Directory.CreateDirectory(imageDirPath);
+
+            if (needCheck)
+            {
+                string tempFilename = Path.GetTempFileName();
+                using (FileStream fs = new FileStream(tempFilename, FileMode.Truncate, FileAccess.Write, FileShare.Delete))
+                {
+                    await file.CopyToAsync(fs);
+                    await fs.FlushAsync();
+                }
+
+                string oldHash = await FileHelper.GetHashFromFileAsync(imagePath, FileHelper.Algorithms.MD5);
+                string newHash = await FileHelper.GetHashFromFileAsync(tempFilename, FileHelper.Algorithms.MD5);
+                if (string.Equals(oldHash, newHash) == false)
+                {
+                    fileName = FileHelper.AddRandomToFilename(fileName);
+                    imagePath = Path.Combine(imageDirPath, fileName);
+                }
+
+                System.IO.File.Move(tempFilename, imagePath, true);
+            }
+            else
+            {
+                using (FileStream fs = new FileStream(imagePath, FileMode.CreateNew, FileAccess.Write, FileShare.Delete))
+                {
+                    await file.CopyToAsync(fs);
+                    await fs.FlushAsync();
+                }
+            }
+
+            string md5Hash = await FileHelper.GetHashFromFileAsync(imagePath, FileHelper.Algorithms.MD5);
+
+            return new JsonResult(new
+            {
+                fileName,
+                contentType = file.ContentType,
+                size = file.Length,
+                md5Hash
+            });
+        }
+
+        [HttpPost("{project}/remote")]
+        public async Task<IActionResult> PostAsync([FromRoute] string project, [FromForm] string url, [FromServices] IHttpClientFactory httpClientFactory, [FromHeader] string token)
+        {
+            if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
+            if (Uri.TryCreate(url, UriKind.Absolute, out Uri uri) == false) return BadRequest();
+
+            string fileName = FileHelper.ToValidFileName(Path.GetFileName(url));
+            var imageDirPath = FileHelper.ToValidFilePath(Path.Combine(_OriginalBaseImageDir, project));
+            var imagePath = Path.Combine(imageDirPath, fileName);
+            if (System.IO.File.Exists(imagePath))
+            {
+                fileName = FileHelper.AddRandomToFilename(fileName);
+                imagePath = Path.Combine(imageDirPath, fileName);
+            }
+
+            int size;
+            try
+            {
+                HttpClient httpClient = httpClientFactory.CreateClient("RemoteIamgePoolClient");
+                using Stream stream = await httpClient.GetStreamAsync(uri);
+
+                if (Directory.Exists(imageDirPath) == false) Directory.CreateDirectory(imageDirPath);
+                using (FileStream fs = new FileStream(imagePath, FileMode.CreateNew, FileAccess.Write, FileShare.Delete))
+                {
+                    await stream.CopyToAsync(fs);
+                    await fs.FlushAsync();
+                    size = Convert.ToInt32(fs.Position);
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
+
+            string md5Hash = await FileHelper.GetHashFromFileAsync(imagePath, FileHelper.Algorithms.MD5);
+
+            return new JsonResult(new
+            {
+                fileName,
+                size,
+                md5Hash
+            });
+        }
+
+        [HttpPost("{project}/remote_with_check_hash")]
+        public async Task<IActionResult> PostWithCheckHashAsync([FromRoute] string project, [FromForm] string url, [FromServices] IHttpClientFactory httpClientFactory, [FromHeader] string token)
+        {
+            if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
+            if (Uri.TryCreate(url, UriKind.Absolute, out Uri uri) == false) return BadRequest();
+
+            string fileName = FileHelper.ToValidFileName(Path.GetFileName(url));
+            var imageDirPath = FileHelper.ToValidFilePath(Path.Combine(_OriginalBaseImageDir, project));
+            var imagePath = Path.Combine(imageDirPath, fileName);
+            bool needCheck = false;
+            if (System.IO.File.Exists(imagePath))
+            {
+                needCheck = true;
+            }
+
+            int size;
+            try
+            {
+                HttpClient httpClient = httpClientFactory.CreateClient("RemoteIamgePoolClient");
+                using Stream stream = await httpClient.GetStreamAsync(uri);
+
+                if (Directory.Exists(imageDirPath) == false) Directory.CreateDirectory(imageDirPath);
+
+                if (needCheck)
+                {
+                    string tempFilename = Path.GetTempFileName();
+                    using (FileStream fs = new FileStream(tempFilename, FileMode.Truncate, FileAccess.Write, FileShare.Delete))
+                    {
+                        await stream.CopyToAsync(fs);
+                        await fs.FlushAsync();
+                        size = Convert.ToInt32(fs.Position);
+                    }
+
+                    string oldHash = await FileHelper.GetHashFromFileAsync(imagePath, FileHelper.Algorithms.MD5);
+                    string newHash = await FileHelper.GetHashFromFileAsync(tempFilename, FileHelper.Algorithms.MD5);
+                    if (string.Equals(oldHash, newHash) == false)
+                    {
+                        fileName = FileHelper.AddRandomToFilename(fileName);
+                        imagePath = Path.Combine(imageDirPath, fileName);
+                    }
+
+                    System.IO.File.Move(tempFilename, imagePath, true);
+                }
+                else
+                {
+                    using (FileStream fs = new FileStream(imagePath, FileMode.CreateNew, FileAccess.Write, FileShare.Delete))
+                    {
+                        await stream.CopyToAsync(fs);
+                        await fs.FlushAsync();
+                        size = Convert.ToInt32(fs.Position);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex);
+            }
+
+            string md5Hash = await FileHelper.GetHashFromFileAsync(imagePath, FileHelper.Algorithms.MD5);
+
+            return new JsonResult(new
+            {
+                fileName,
+                size,
+                md5Hash
+            });
         }
     }
 }

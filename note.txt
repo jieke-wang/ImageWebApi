@@ -2,6 +2,10 @@ https://www.c-sharpcorner.com/uploadfile/rahuldebray/compress-image-to-a-given-s
 https://www.c-sharpcorner.com/UploadFile/85ed7a/compress-and-resize-the-image-using-web-api/
 https://medium.com/@dale.bingham_30375/adding-response-caching-to-your-net-core-web-apis-quickly-3b09611ae4f5
 https://stackoverflow.com/questions/34131326/using-mimemapping-in-asp-net-core
+https://docs.microsoft.com/en-us/aspnet/core/mvc/models/file-uploads?view=aspnetcore-5.0
+https://docs.microsoft.com/zh-cn/dotnet/csharp/language-reference/keywords/volatile
+https://docs.microsoft.com/en-us/aspnet/core/fundamentals/http-requests?view=aspnetcore-5.0
+https://www.stevejgordon.co.uk/httpclient-connection-pooling-in-dotnet-core
 
 
 测试:
@@ -11,3 +15,58 @@ http://localhost:5000/image/enterprise/notfound.jpg
 
 http://localhost:5000/image/enterprise/1000x1000/demo.jpg
 http://localhost:5000/image/enterprise/1000x1000/demo.png
+
+################################################
+https://localhost:5001/image/enterprise
+
+POST /image/enterprise HTTP/1.1
+Host: localhost:5001
+token: RDljrnUOpL9cTf58AY6hvqHiQuWXbMKFwkyz1ZIGt7a43VNdCJ
+Cache-Control: no-cache
+
+----WebKitFormBoundaryE19zNvXGzXaLvS5C
+Content-Disposition: form-data; name="file"; filename="986bd310-c13b-43f4-bb45-b3480362e35a.jpg"
+Content-Type: image/jpeg
+
+
+----WebKitFormBoundaryE19zNvXGzXaLvS5C
+
+
+################################################
+https://localhost:5001/image/enterprise/remote
+
+POST /image/enterprise/remote HTTP/1.1
+Host: localhost:5001
+token: RDljrnUOpL9cTf58AY6hvqHiQuWXbMKFwkyz1ZIGt7a43VNdCJ
+Cache-Control: no-cache
+Content-Type: application/x-www-form-urlencoded
+
+url=https%3A%2F%2Fadmin.funbikes.co.uk%2FUpload%2FImages%2F986bd310-c13b-43f4-bb45-b3480362e35a.jpg
+
+
+################################################
+https://localhost:5001/image/enterprise/remote_with_check_hash
+
+POST /image/enterprise/remote_with_check_hash HTTP/1.1
+Host: localhost:5001
+token: RDljrnUOpL9cTf58AY6hvqHiQuWXbMKFwkyz1ZIGt7a43VNdCJ
+Cache-Control: no-cache
+Content-Type: application/x-www-form-urlencoded
+
+url=https%3A%2F%2Fadmin.funbikes.co.uk%2FUpload%2FImages%2F986bd310-c13b-43f4-bb45-b3480362e35a.jpg
+
+
+################################################
+https://localhost:5001/image/enterprise/with_check_hash
+
+POST /image/enterprise/with_check_hash HTTP/1.1
+Host: localhost:5001
+token: RDljrnUOpL9cTf58AY6hvqHiQuWXbMKFwkyz1ZIGt7a43VNdCJ
+Cache-Control: no-cache
+
+----WebKitFormBoundaryE19zNvXGzXaLvS5C
+Content-Disposition: form-data; name="file"; filename="986bd310-c13b-43f4-bb45-b3480362e35a.jpg"
+Content-Type: image/jpeg
+
+
+----WebKitFormBoundaryE19zNvXGzXaLvS5C

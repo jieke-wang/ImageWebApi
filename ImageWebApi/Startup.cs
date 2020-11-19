@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpsPolicy;
@@ -11,6 +13,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace ImageWebApi
 {
@@ -28,6 +32,21 @@ namespace ImageWebApi
         {
             services.AddResponseCaching();
             services.AddResponseCompression();
+
+            services
+                .AddHttpClient("RemoteIamgePoolClient")
+                .ConfigurePrimaryHttpMessageHandler(() =>
+                {
+                    return new SocketsHttpHandler
+                    {
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(60),
+                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(10),
+                        MaxConnectionsPerServer = 10,
+                        UseCookies = false,
+                        AllowAutoRedirect = true,
+                    };
+                });
+
             services.AddControllers();
             services.AddSwaggerGen(c =>
             {
@@ -41,9 +60,9 @@ namespace ImageWebApi
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                app.UseSwagger();
-                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "ImageWebApi v1"));
             }
+            app.UseSwagger();
+            app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "ImageWebApi v1"));
 
             // app.UseHttpsRedirection();
 
