@@ -85,6 +85,8 @@ namespace ImageWebApi
 
             app.UseAuthorization();
 
+            app.UseStaticFiles();
+
             app.UseResponseCaching();
             //app.Use(async (context, next) =>
             //{

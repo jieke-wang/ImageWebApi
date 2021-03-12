@@ -38,8 +38,8 @@ namespace ImageWebApi.Controllers
         }
 
         [HttpGet("{project}/{width}x{height}/{filename}")]
-        [ResponseCache(Duration = 31536000, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "md5" })]
-        public async Task<IActionResult> GetAsync([FromRoute] string project, [FromRoute] string width, [FromRoute] string height, [FromRoute] string filename)
+        [ResponseCache(Duration = 31536000, Location = ResponseCacheLocation.Any, VaryByQueryKeys = new[] { "md5", "bg", "q" })]
+        public async Task<IActionResult> GetAsync([FromRoute] string project, [FromRoute] string width, [FromRoute] string height, [FromQuery] string bg, [FromQuery] string q, [FromRoute] string filename)
         {
             if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(filename)) return await GetDefaultImageAsync();
             project = project.ToLower();
@@ -49,7 +49,8 @@ namespace ImageWebApi.Controllers
             if (int.TryParse(width, out int _width) == false || int.TryParse(height, out int _height) == false) return await GetDefaultImageAsync();
 
             string destinationDir = Path.Combine(_environment.ContentRootPath, _configuration["ImageApiSetting:ImageCacheRootDir"], project, $"{_width}x{_height}");
-            string imageDestinationPath = Path.Combine(destinationDir, filename);
+            string destinationFilename = FileHelper.ToValidFileName($"{bg}_{q}_{filename}");
+            string imageDestinationPath = Path.Combine(destinationDir, destinationFilename);
             if (System.IO.File.Exists(imageDestinationPath))
             {
                 new FileExtensionContentTypeProvider().TryGetContentType(filename, out string contentType);
@@ -57,14 +58,16 @@ namespace ImageWebApi.Controllers
             }
             if (Directory.Exists(destinationDir) == false) Directory.CreateDirectory(destinationDir);
 
-            ImageCompress imgCompress = ImageCompress.GetImageCompressObject;
+            ImageCompressV2 imgCompress = ImageCompressV2.GetImageCompressObject;
             imgCompress.GetImage = new System.Drawing.Bitmap(imageOriginalPath);
             imgCompress.Height = _height;
             imgCompress.Width = _width;
-            imgCompress.Save(filename, destinationDir);
+            imgCompress.BackgrouColor = bg;
+            imgCompress.Quantity = q;
+            imgCompress.Save(destinationFilename, destinationDir);
 
             if (System.IO.File.Exists(imageDestinationPath) == false) return await GetDefaultImageAsync();
-            return await GetSpecialImageAsync(imageDestinationPath, filename);
+            return await GetSpecialImageAsync(imageDestinationPath, destinationFilename);
         }
 
         [NonAction]
@@ -127,7 +130,7 @@ namespace ImageWebApi.Controllers
         }
 
         [HttpPost("{project}/with_check_hash")]
-        public async Task<IActionResult> PostWithCheckHashAsync([FromRoute] string project, [FromForm] IFormFile file, [FromHeader] string token)
+        public async Task<IActionResult> PostWithCheckHashAsync([FromRoute] string project, [FromForm] IFormFile file, [FromHeader] string token, [FromHeader] string overwrite)
         {
             if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
             if (file == null || file.Length == 0) return BadRequest();
@@ -156,7 +159,10 @@ namespace ImageWebApi.Controllers
                 string newHash = await FileHelper.GetHashFromFileAsync(tempFilename, FileHelper.Algorithms.MD5);
                 if (string.Equals(oldHash, newHash) == false)
                 {
-                    fileName = FileHelper.AddRandomToFilename(fileName);
+                    if (string.Equals(overwrite, "overwrite", StringComparison.OrdinalIgnoreCase) == false)
+                    {
+                        fileName = FileHelper.AddRandomToFilename(fileName);
+                    }
                     imagePath = Path.Combine(imageDirPath, fileName);
                 }
 
@@ -227,7 +233,7 @@ namespace ImageWebApi.Controllers
         }
 
         [HttpPost("{project}/remote_with_check_hash")]
-        public async Task<IActionResult> PostWithCheckHashAsync([FromRoute] string project, [FromForm] string url, [FromServices] IHttpClientFactory httpClientFactory, [FromHeader] string token)
+        public async Task<IActionResult> PostWithCheckHashAsync([FromRoute] string project, [FromForm] string url, [FromServices] IHttpClientFactory httpClientFactory, [FromHeader] string token, [FromHeader] string overwrite)
         {
             if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
             if (Uri.TryCreate(url, UriKind.Absolute, out Uri uri) == false) return BadRequest();
@@ -263,7 +269,10 @@ namespace ImageWebApi.Controllers
                     string newHash = await FileHelper.GetHashFromFileAsync(tempFilename, FileHelper.Algorithms.MD5);
                     if (string.Equals(oldHash, newHash) == false)
                     {
-                        fileName = FileHelper.AddRandomToFilename(fileName);
+                        if (string.Equals(overwrite, "overwrite", StringComparison.OrdinalIgnoreCase) == false)
+                        {
+                            fileName = FileHelper.AddRandomToFilename(fileName);
+                        }
                         imagePath = Path.Combine(imageDirPath, fileName);
                     }
 
@@ -291,6 +300,55 @@ namespace ImageWebApi.Controllers
                 fileName,
                 size,
                 md5Hash
+            });
+        }
+
+        [HttpDelete("{project}/{filename}")]
+        public async Task<IActionResult> DeleteAsync([FromRoute] string project, [FromRoute] string filename, [FromHeader] string token)
+        {
+            if (string.Equals(token, _configuration["ImageApiSetting:Token"]) == false) return Unauthorized();
+            if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(filename)) return BadRequest();
+
+            project = project.ToLower();
+            filename = filename.ToLower();
+            var imagePath = Path.Combine(_OriginalBaseImageDir, project, filename);
+            if (System.IO.File.Exists(imagePath))
+            {
+                System.IO.File.Delete(imagePath);
+            }
+
+            string destinationDir = Path.Combine(_environment.ContentRootPath, _configuration["ImageApiSetting:ImageCacheRootDir"], project);
+            var directories = Directory.GetDirectories(destinationDir);
+            void DeleteFile(string directory)
+            {
+                foreach (var _filename in Directory.EnumerateFiles(directory, $"*{filename}", SearchOption.TopDirectoryOnly))
+                {
+                    //Console.WriteLine(filename);
+                    System.IO.File.Delete(_filename);
+                }
+            }
+
+            #region “Ï≤Ω
+            Task[] tasks = new Task[directories.Length];
+            for (int i = 0; i < directories.Length; i++)
+            {
+                string directory = directories[i];
+                tasks[i] = Task.Run(() => DeleteFile(directory));
+            }
+            await Task.WhenAll(tasks);
+            #endregion
+
+            #region Õ¨≤Ω
+            //for (int i = 0; i < directories.Length; i++)
+            //{
+            //    string directory = directories[i];
+            //    DeleteFile(directory);
+            //} 
+            #endregion
+
+            return new JsonResult(new
+            {
+                filename
             });
         }
     }
