@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -33,7 +33,14 @@ namespace ImageWebApi.Libs
             PixelFormat pixelFormat = original.PixelFormat;
 
             Bitmap destination = new Bitmap(width, height, pixelFormat);
-            destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            try
+            {
+                destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            }
+            catch
+            {
+                destination.SetResolution(96, 96);
+            }
 
             using (var graphic = Graphics.FromImage(destination))
             {
@@ -120,7 +127,14 @@ namespace ImageWebApi.Libs
             PixelFormat pixelFormat = original.PixelFormat;
 
             Bitmap destination = new Bitmap(width, height, pixelFormat);
-            destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            try
+            {
+                destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            }
+            catch
+            {
+                destination.SetResolution(96, 96);
+            }
 
             using (var graphic = Graphics.FromImage(destination))
             {
@@ -195,7 +209,14 @@ namespace ImageWebApi.Libs
             PixelFormat pixelFormat = original.PixelFormat;
 
             Bitmap destination = new Bitmap(width, height, pixelFormat);
-            destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            try
+            {
+                destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            }
+            catch
+            {
+                destination.SetResolution(96, 96);
+            }
 
             using (var graphic = Graphics.FromImage(destination))
             {
@@ -319,7 +340,14 @@ namespace ImageWebApi.Libs
 
             //An empy bitmap to draw the rotated image
             Bitmap destination = new Bitmap(bounds.Width, bounds.Height, pixelFormat);
-            destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            try
+            {
+                destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            }
+            catch
+            {
+                destination.SetResolution(96, 96);
+            }
 
             using (var graphic = Graphics.FromImage(destination))
             {
@@ -403,7 +431,14 @@ namespace ImageWebApi.Libs
             PixelFormat pixelFormat = original.PixelFormat;
 
             Bitmap destination = new Bitmap(original.Width, original.Height, pixelFormat);
-            destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            try
+            {
+                destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            }
+            catch
+            {
+                destination.SetResolution(96, 96);
+            }
 
             using (var graphic = Graphics.FromImage(destination))
             {
@@ -527,7 +562,14 @@ namespace ImageWebApi.Libs
                 return original;
 
             Bitmap destination = new Bitmap(original.Width, original.Height, PixelFormat.Format32bppArgb);
-            destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            try
+            {
+                destination.SetResolution(original.HorizontalResolution, original.VerticalResolution);
+            }
+            catch
+            {
+                destination.SetResolution(96, 96);
+            }
             using (Graphics g = Graphics.FromImage(destination))
             {
                 g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
